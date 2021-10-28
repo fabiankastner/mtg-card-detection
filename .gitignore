@@ -1,4 +1,5 @@
 .venv
 data
 src/__pycache__
+.logs
 .vscode
