@@ -18,6 +18,7 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras import callbacks
 from tensorflow.keras.models import load_model
 import datetime
+from PIL import Image
 import cv2
 from tensorflow.keras.applications import ResNet50
 
@@ -48,31 +49,38 @@ def train_model():
     images['class'] = le.fit_transform(images.card_name).astype('str')
 
     data_generator = ImageDataGenerator(
-        rescale=1 / 255.0,
-        rotation_range=20,
-        zoom_range=0.05,
-        width_shift_range=0.05,
-        height_shift_range=0.05,
-        shear_range=0.05,
-        horizontal_flip=True,
-        fill_mode="nearest",
-        validation_split=0.20)
+        rescale=1.0/255.0,
+        rotation_range=360,
+        zoom_range=0.2,
+        width_shift_range=0.1,
+        height_shift_range=0.1,
+        brightness_range=(0.5, 1.0),
+        shear_range=0.2,
+        fill_mode="nearest")
 
     data_generator = data_generator.flow_from_dataframe(
         dataframe=images,
         directory='data/images',
-        target_size=(256, 256),
-        batch_size=32,
+        target_size=(936, 672),
+        batch_size=16,
         class_mode='categorical')
+
+    
+    # for x in data_generator:
+    #     for image_array in x[0][:10]:
+    #         img = Image.fromarray((image_array*255).astype(np.uint8))
+    #         img.show()
+    #     break
+    # return
 
 
     feature_extractor = ResNet50(weights='imagenet', 
-                             input_shape=(256, 256, 3),
+                             input_shape=(936, 672, 3),
                              include_top=False)
 
     feature_extractor.trainable = False
 
-    input_ = tf.keras.Input(shape=(256, 256, 3))
+    input_ = tf.keras.Input(shape=(936, 672, 3))
 
     x = feature_extractor(input_, training=False)
     x = tf.keras.layers.GlobalAveragePooling2D()(x)
@@ -81,14 +89,14 @@ def train_model():
     model = tf.keras.Model(input_, output_)
 
     EPOCHS = 1000
-    BATCH_SIZE = 64
+    BATCH_SIZE = 16
 
     callbacks_ = [callbacks.EarlyStopping(monitor='val_loss', patience=EPOCHS/10),
                   callbacks.TensorBoard(log_dir='.logs')]
 
     model.compile(optimizer='adam',
-        loss='categorical_crossentropy',
-        metrics=['accuracy'])
+                  loss='categorical_crossentropy',
+                  metrics=['categorical_accuracy'])
 
     model.fit(data_generator, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=callbacks_)
     
